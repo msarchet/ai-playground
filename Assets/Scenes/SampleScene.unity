@@ -416,9 +416,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   NumberOfGyms: 100
-  NumberOfHumans: 10
-  NumberOfZombies: 50
+  NumberOfHumans: 25
+  NumberOfZombies: 75
+  NumberOfMoves: 50
   RowWidth: 10
+  Seed: 12
+  NumberOfGenerationsToRun: 2000
   gymContainers: []
   gyms: []
 --- !u!23 &824567321
