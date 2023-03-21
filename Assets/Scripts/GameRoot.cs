@@ -4,368 +4,6 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
-public static class Helpers
-{
-    private static Dictionary<int, double> FibMap = new Dictionary<int, double>();
-    public static Vector3 ConvertPositionToWorldPosition(Vector2Int position, Vector2 worldSize) => new Vector3(position.x / worldSize.x, 0.5f, position.y / worldSize.y);
-
-    public static double MagnitudeSquared(Vector2Int position1, Vector2Int position2) => System.Math.Pow(position1.x - position2.x, 2) + System.Math.Pow(position1.y - position2.y, 2);
-
-    public static double GetFib(int n)
-    {
-        if (FibMap.ContainsKey(n))
-        {
-            return FibMap[n];
-        }
-
-        if (n > 1)
-        {
-            double n1 = 0;
-            double n2 = 0;
-
-            if (FibMap.ContainsKey(n - 2))
-            {
-                n2 = FibMap[n - 2];
-            }
-            else
-            {
-                n2 = GetFib(n - 2);
-                FibMap.Add(n - 2, n2);
-            }
-
-            if (FibMap.ContainsKey(n - 1))
-            {
-                n1 = FibMap[n - 1];
-            }
-            else
-            {
-                n1 = GetFib(n - 1);
-                FibMap.Add(n - 1, n1);
-            }
-
-            return n1 + n2;
-        }
-
-        if (n == 1)
-        {
-            return 1;
-        }
-
-        return 0;
-    }
-}
-
-public enum GamePhase
-{
-    Playing,
-    Won,
-    Lost,
-    Incomplete
-}
-
-public class GameState
-{
-    public static GameState CachedState { get; set; }
-    public Dictionary<int, Vector2Int> Humans { get; } = new Dictionary<int, Vector2Int>();
-    public Dictionary<int, Vector2Int> Zombies { get; } = new Dictionary<int, Vector2Int>();
-    public Dictionary<int, Vector2Int> ZombieNextMoves { get; set; } = new Dictionary<int, Vector2Int>();
-    public Dictionary<int, int> HumanClosestToZombie { get; set; } = new Dictionary<int, int>();
-    public Vector2Int Ash { get; set; } = new Vector2Int(0, 0);
-
-    public HashSet<int> KilledHumans { get; set;  } = new HashSet<int>();
-    public HashSet<int> KilledZombie { get; set;  } = new HashSet<int>();
-
-    public double DistanceToLastHuman { get; set; }
-
-    public int NumberOfUsedMoves { get; set; }
-
-    public double Score { get; set; }
-
-    public GamePhase Phase { get; set; } = GamePhase.Playing;
-
-    public GameState() {}
-
-    public GameState(GameState gameState)
-    {
-        this.CopyFrom(gameState);
-    }
-
-    public void CopyFrom(GameState gameState)
-    {
-        foreach (var pair in gameState.Humans)
-        {
-            this.Humans[pair.Key] = pair.Value;
-        }
-
-        foreach (var pair in gameState.Zombies)
-        {
-            this.Zombies[pair.Key] =  pair.Value;
-        }
-
-        foreach (var pair in gameState.ZombieNextMoves)
-        {
-            this.ZombieNextMoves[pair.Key] =  pair.Value;
-        }
-
-        foreach (var pair in gameState.HumanClosestToZombie)
-        {
-            this.HumanClosestToZombie[pair.Key] = pair.Value;
-        }
-
-        this.Ash = gameState.Ash;
-
-        this.KilledHumans = new HashSet<int>(gameState.KilledHumans.ToList());
-        this.KilledZombie = new HashSet<int>(gameState.KilledZombie.ToList());
-
-        this.Score = gameState.Score;
-        this.Phase = gameState.Phase;
-        this.DistanceToLastHuman = gameState.DistanceToLastHuman;
-        this.NumberOfUsedMoves = gameState.NumberOfUsedMoves;
-    }
-}
-
-public class Game
-{
-    private Vector2Int size;
-
-    private int AshKillRadius = 2000;
-    public int AshKillRadiusSquared;
-    private int seed;
-
-    public GameState GameState { get; } = new GameState();
-
-    public Game(int seed)
-    {
-        this.seed = seed;
-        this.AshKillRadiusSquared = this.AshKillRadius * this.AshKillRadius;
-    }
-
-    public Game(Game game) : this(game.seed)
-    {
-        this.GameState = new GameState(game.GameState);
-        this.size = game.size;
-    }
-
-    public void CopyFrom(Game game)
-    {
-        this.GameState.CopyFrom(game.GameState);
-        this.size = game.size;
-    }
-
-    public void SetupWorld(Vector2Int size)
-    {
-        this.size = size;
-    }
-
-    public void InitializeRandomGame(int numberOfHumans, int numberOfZombies)
-    {
-        Random.InitState(this.seed);
-
-        for (int i = 0; i < numberOfHumans; i++)
-        {
-            this.GameState.Humans.Add(i, new Vector2Int(Random.Range(0, this.size.x), Random.Range(0, this.size.y))); 
-        }    
-
-        for (int i = 0; i < numberOfZombies; i++)
-        {
-            var zombie = new Vector2Int(Random.Range(0, this.size.x), Random.Range(0, this.size.y));
-            this.GameState.Zombies.Add(i, zombie); 
-
-            var closestHuman = 0;
-            var closestDistance = double.MaxValue;
-            // TODO: Find a better lookup than the current
-
-            foreach (var humanPair in this.GameState.Humans)
-            {
-                var human = humanPair.Value;
-                var distanceToHuman = Helpers.MagnitudeSquared(zombie, human);
-
-                if (distanceToHuman <= closestDistance)
-                {
-                    closestDistance = distanceToHuman;
-                    closestHuman = humanPair.Key;
-                }
-            }
-
-            this.GameState.HumanClosestToZombie[i] = closestHuman;
-
-        }
-
-        this.GameState.Ash = new Vector2Int(Random.Range(0, this.size.x), Random.Range(0, this.size.y));
-    }
-
-    public void PreBuildHumanToZombieMap()
-    {
-        foreach (var zombiePair in this.GameState.Zombies)
-        {
-            var closestHuman = 0;
-            var closestDistance = double.MaxValue;
-            // TODO: Find a better lookup than the current
-
-            foreach (var humanPair in this.GameState.Humans)
-            {
-                var human = humanPair.Value;
-                var distanceToHuman = Helpers.MagnitudeSquared(zombiePair.Value, human);
-
-                if (distanceToHuman <= closestDistance)
-                {
-                    closestDistance = distanceToHuman;
-                    closestHuman = humanPair.Key;
-                }
-            }
-
-            this.GameState.HumanClosestToZombie[zombiePair.Key] = closestHuman;
-
-        }
-    }
-
-    public void TickNextState(Vector2Int ashPosition)
-    {
-        if (this.GameState.Phase != GamePhase.Playing)
-        {
-            return;
-        }
-
-        this.GameState.NumberOfUsedMoves++;
-
-        foreach (var zombiePair in this.GameState.Zombies)
-        {
-            var zombie = zombiePair.Value;
-
-            var closestDistance = double.MaxValue;
-            var closestHuman = 0;
-
-            // can we search outwards from the point of the zombie
-            // to find the closest human instead
-            if (this.GameState.HumanClosestToZombie.TryGetValue(zombiePair.Key, out int humanId))
-            {
-                if (this.GameState.Humans.ContainsKey(humanId))
-                {
-                    closestHuman = humanId;
-
-                    closestDistance = Helpers.MagnitudeSquared(zombie, this.GameState.Humans[humanId]);
-                } else
-                {
-                    this.GameState.HumanClosestToZombie.Remove(zombiePair.Key);
-                }
-            }
-
-            if (closestDistance == double.MaxValue)
-            {
-                // TODO: Find a better lookup than the current
-                foreach (var humanPair in this.GameState.Humans)
-                {
-                    var human = humanPair.Value;
-                    var distanceToHuman = Helpers.MagnitudeSquared(zombie, human);
-
-                    if (distanceToHuman <= closestDistance)
-                    {
-                        closestDistance = distanceToHuman;
-                        closestHuman = humanPair.Key;
-                    }
-                }
-
-                this.GameState.HumanClosestToZombie[zombiePair.Key] = closestHuman;
-            }
-
-            var targetPosition = this.GameState.Humans[closestHuman];
-
-            var distanceToAsh = Helpers.MagnitudeSquared(this.GameState.Ash, zombie);
-
-            bool isTargetAsh = false;
-
-            if (distanceToAsh <= closestDistance)
-            {
-                targetPosition = ashPosition;
-                isTargetAsh = true;
-                this.GameState.HumanClosestToZombie.Remove(zombiePair.Key);
-            }
-
-            var newPosition = Vector2.MoveTowards(zombie, targetPosition, 400.0f);
-            var nextPosition = new Vector2Int((int)newPosition.x, (int)newPosition.y);
-
-            var newDistanceToAsh = Helpers.MagnitudeSquared(nextPosition, ashPosition);
-            this.GameState.ZombieNextMoves.Add(zombiePair.Key, nextPosition);
-
-            if (newDistanceToAsh <= AshKillRadiusSquared)
-            {
-                this.GameState.KilledZombie.Add(zombiePair.Key);
-                continue;
-            }
-
-            if (!isTargetAsh && closestDistance == 0)
-            {
-                this.GameState.KilledHumans.Add(closestHuman);
-                this.GameState.HumanClosestToZombie.Remove(zombiePair.Key);
-            }
-        }
-
-        // set ashes new position
-        this.GameState.Ash = ashPosition;
-
-        // move the zombies
-        foreach (var movePair in this.GameState.ZombieNextMoves)
-        {
-            if (!this.GameState.KilledZombie.Contains(movePair.Key))
-            {
-                this.GameState.Zombies[movePair.Key] = movePair.Value;
-            }
-        }
-
-        foreach (var human in this.GameState.KilledHumans)
-        {
-            this.GameState.DistanceToLastHuman = Helpers.MagnitudeSquared(this.GameState.Ash, this.GameState.Humans[human]);
-            this.GameState.Humans.Remove(human);
-        }
-
-
-        // calculate the score
-        var humansRemaining = this.GameState.Humans.Count;
-
-        if (humansRemaining == 0)
-        {
-            this.GameState.Phase = GamePhase.Lost;
-            return;
-        } 
-
-        int killedZombieCount = 0;
-        int humanCountSquare = humansRemaining * humansRemaining;
-
-        foreach (var zombie in this.GameState.KilledZombie)
-        {
-            this.GameState.Zombies.Remove(zombie);
-            killedZombieCount++;
-            this.GameState.Score += 10 * humanCountSquare * Helpers.GetFib(killedZombieCount);
-        }
-
-        if (this.GameState.Zombies.Count == 0)
-        {
-            this.GameState.Phase = GamePhase.Won;
-            return;
-        }
-
-    }
-
-    public void PostTickMoveAndCleanup()
-    {
-        this.GameState.ZombieNextMoves.Clear();
-        this.GameState.KilledZombie.Clear();
-        this.GameState.KilledHumans.Clear();
-    }
-}
-
-public struct Move
-{
-    public float Angle;
-    public float Magintude;
-
-    public Move(float angle, float magnitude)
-    {
-        this.Angle = angle;
-        this.Magintude = magnitude;
-    }
-}
-
 [RequireComponent(typeof(MeshRenderer))]
 public class GameRoot : MonoBehaviour
 {
@@ -383,12 +21,12 @@ public class GameRoot : MonoBehaviour
 
     private List<Move[]> currentMoveGeneration;
     private Game gameToTest;
-    private GameScoreResult[] LastResults;
+    private GameFitness[] LastResults;
     private int Generation = 1;
     private int IterationGenerations = 0;
     bool scored = false;
     bool scoring = false;
-    List<GameScoreResult> cumaltiveResults = new List<GameScoreResult>();
+    List<GameFitness> cumaltiveResults = new List<GameFitness>();
 
     void Start()
     {
@@ -398,9 +36,9 @@ public class GameRoot : MonoBehaviour
     {
         Physics.autoSimulation = false;
 
-        this.LastResults = new GameScoreResult[NumberOfGyms];
+        this.LastResults = new GameFitness[NumberOfGyms];
         this.seed = Seed;
-        this.gameToTest = new Game(seed);
+        this.gameToTest = new Game(seed, -1);
         this.gameToTest.SetupWorld(new Vector2Int(16000, 9000));
 
         if (System.IO.File.Exists("game_inputs.dat"))
@@ -446,7 +84,7 @@ public class GameRoot : MonoBehaviour
             gymObject.transform.position = gymObject.transform.position + new Vector3((i % RowWidth) * 180.0f, 0, (i / RowWidth) * 100.0f);
 
             Gyms gym = gymObject.AddComponent<Gyms>();
-            gym.Game = new Game(this.gameToTest);
+            gym.Game = new Game(this.gameToTest, i);
             gym.Setup(gym.Game, this.currentMoveGeneration[i]);
             gyms.Add(gym);
 
@@ -484,6 +122,7 @@ public class GameRoot : MonoBehaviour
     }
 
     private Move GenerateMove() => new Move(Mathf.Lerp(0.0f, 360.0f, 1.0f - Mathf.Pow(Random.value, 2.0f)), Mathf.Lerp(0.0f, 1000.0f, 1.0f - Mathf.Pow(Random.value, 2.0f)));
+
     private List<Move[]> GenerateMoveSets()
     {
         List<Move[]> moveSets = new List<Move[]>();
@@ -523,14 +162,12 @@ public class GameRoot : MonoBehaviour
 
         int i = 0;
 
-        this.cumaltiveResults.Add(this.LastResults[0]);
+        this.cumaltiveResults.Add(new GameFitness(this.LastResults[0]));
 
         for (i = 0; i < this.NumberOfGyms / 10; i++)
         {
-            if (this.LastResults[i].Fitness > 0)
-            {
-                newMoves.Add(this.LastResults[i].Moves);
-            }
+            var result = this.LastResults[i];
+            newMoves.Add(moves[result.Gym]);
         }
 
         i = newMoves.Count();
@@ -540,8 +177,8 @@ public class GameRoot : MonoBehaviour
             var parent1 = this.LastResults[GetParent()];
             var parent2 = this.LastResults[GetParent()];
 
-            var parent1Moves = parent1.Moves;
-            var parent2Moves = parent2.Moves;
+            var parent1Moves = moves[parent1.Gym];
+            var parent2Moves = moves[parent2.Gym];
 
 
             var choice = Random.Range(0, 2);
@@ -602,7 +239,7 @@ public class GameRoot : MonoBehaviour
                 {
                     stringBuilder.Append($"{result.Score},{result.Fitness}");
                     var movesString = new StringBuilder();
-                    foreach (var move in result.Moves)
+                    foreach (var move in this.currentMoveGeneration[result.Gym])
                     {
                         movesString.Append(",");
                         movesString.Append($"{move.Angle};{move.Magintude}");
@@ -640,34 +277,21 @@ public class GameRoot : MonoBehaviour
 
         int i = 0;
 
-        foreach (var gameContainer in gyms)
+        double maxScore = 0;
+        foreach (var gym in gyms)
         {
-            var result = new GameScoreResult();
-            result.Score = gameContainer.Game.GameState.Score;
-            result.Won = gameContainer.Game.GameState.Phase == GamePhase.Won;
-            result.Lost = gameContainer.Game.GameState.Phase == GamePhase.Lost;
-            result.Moves = gameContainer.Moves;
-            result.Gym = i;
-            double fitness = result.Score;
-
-            if (result.Won)
+            if (gym.Game.GameState.Score > maxScore)
             {
-                fitness *= 1.2;
-                fitness *= gameContainer.Game.AshKillRadiusSquared / (gameContainer.Game.GameState.DistanceToLastHuman < gameContainer.Game.AshKillRadiusSquared ? 1 : gameContainer.Game.GameState.DistanceToLastHuman);
-                fitness *= ((1.1 - gameContainer.Game.GameState.NumberOfUsedMoves / NumberOfMoves) + gameContainer.Game.GameState.Humans.Count * 2);
+                maxScore = gym.Game.GameState.Score;
             }
+        }
 
-            if (result.Lost)
-            {
-                if (result.Score == 0)
-                {
-                    fitness = 0.5;
-                }
-            }
+        foreach (var gym in gyms)
+        {
+            var gameState = gym.Game.GameState;
 
-            fitness *= .5 + (gameContainer.Game.GameState.Humans.Count / NumberOfHumans) * 3;
-
-            result.Fitness = fitness;
+            gym.Game.ScoreFitness(maxScore, this.NumberOfMoves);
+            var fitness = gym.Game.Fitness.Fitness;
 
             if (fitness > maxFitness)
             {
@@ -679,12 +303,11 @@ public class GameRoot : MonoBehaviour
                 minFitness = fitness;
             }
 
-            this.LastResults[i] = result;
+            this.LastResults[i] = gym.Game.Fitness;
             i++;
         }
 
         scored = true;
-
 
         if (IterationGenerations < NumberOfGenerationsToRun)
         {
@@ -738,15 +361,4 @@ public class GameRoot : MonoBehaviour
             this.unattended = !this.unattended;
         }
     }
-}
-
-
-public struct GameScoreResult
-{
-    public double Score;
-    public bool Won;
-    public bool Lost;
-    public double Fitness;
-    public int Gym;
-    public Move[] Moves;
 }

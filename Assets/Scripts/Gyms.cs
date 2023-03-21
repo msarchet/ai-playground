@@ -140,7 +140,7 @@ public class Gyms : MonoBehaviour
 
         this.ash.transform.localPosition = new Vector3(this.Game.GameState.Ash.x / 100.0f, 1.0f, this.Game.GameState.Ash.y / 100.0f);
 
-        foreach (var zombie in this.Game.GameState.KilledZombie)
+        foreach (var zombie in this.Game.GameState.KilledZombies)
         {
             if (this.zombies.TryGetValue(zombie, out GameObject zombieObject))
             {
