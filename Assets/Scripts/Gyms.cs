@@ -18,11 +18,11 @@ public class Gyms : MonoBehaviour
     // Update is called once per frame
     private void Awake()
     {
-        var plane = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        var plane = GameObject.CreatePrimitive(PrimitiveType.Cube);
         plane.transform.parent = this.transform;
-        plane.transform.localScale = new Vector3(16.0f, 0.0f, 9.0f);
+        plane.transform.localScale = new Vector3(160.0f, 1.0f, 90.0f);
         plane.transform.localPosition = new Vector3(80.0f, 0.0f, 45.0f);
-        plane.GetComponent<MeshRenderer>().sharedMaterial.color = Color.white;   
+        plane.GetComponent<MeshRenderer>().sharedMaterial.color = Color.white;
         this.Plane = plane;
 
         this.zombies = new Dictionary<int, GameObject>();   
