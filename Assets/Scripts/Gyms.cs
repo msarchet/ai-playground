@@ -9,11 +9,12 @@ public class Gyms : MonoBehaviour
     public Move[] Moves;
     public GameObject Plane;
     public int Move = 0;
-
+    public int SlowDown = 1;
     private Dictionary<int, GameObject> humans;
     private Dictionary<int, GameObject> zombies;
     private GameObject ash;
     private bool setup;
+
 
     // Update is called once per frame
     private void Awake()
@@ -103,6 +104,7 @@ public class Gyms : MonoBehaviour
         this.transform.localPosition = new Vector3(this.transform.localPosition.x, 0.0f, this.transform.localPosition.z);
     }
 
+    private int slowdownCount = 0;
     void FixedUpdate()
     {
 
@@ -115,13 +117,20 @@ public class Gyms : MonoBehaviour
         {
             if (this.Game.GameState.Phase == GamePhase.Playing)
             {
-                this.Game.GameState.Phase = GamePhase.Lost;
+                this.Game.GameState.Phase = GamePhase.Incomplete;
             }
 
             // maybe emit an event or something
             return; 
         }
 
+        slowdownCount++;
+        if (slowdownCount < this.SlowDown)
+        {
+            return;
+        }
+
+        slowdownCount = 0;
         var nextMoveX = this.Game.GameState.Ash.x + Mathf.Cos(Moves[Move].Angle) * Moves[Move].Magintude;
         var nextMoveY = this.Game.GameState.Ash.y + Mathf.Sin(Moves[Move].Angle) * Moves[Move].Magintude;
         nextMoveX = Mathf.Min(Mathf.Max(nextMoveX, 0), this.Size.x);

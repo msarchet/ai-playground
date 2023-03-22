@@ -14,12 +14,22 @@ public class GameRoot : MonoBehaviour
     public int RowWidth;
     public int Seed;
     public int NumberOfGenerationsToRun = 100;
+    public float AngleVariation = 45.0f;
+    public float MagintudeVariation = 200.0f;
+    public float GeneMutateChance = 0.01f;
+    public int ElitismCount = 4;
+    public int KillCount = 20;
+
+    [Range(1, 100)]
+    public int SlowDownCount = 1;
 
     public List<GameObject> gymContainers = new List<GameObject>();
     public List<Gyms> gyms = new List<Gyms>();
     private int seed;
 
-    private List<Move[]> currentMoveGeneration;
+    private Move[][] currentMoveGeneration;
+    private Move[][] nextMoveGeneration;
+    private Move[][] swapMoveGeneration;
     private Game gameToTest;
     private GameFitness[] LastResults;
     private int Generation = 1;
@@ -32,14 +42,28 @@ public class GameRoot : MonoBehaviour
     {
     }
 
+    private Move[][] MakeMoveGenerations()
+    {
+        Move[][] moveGeneration = new Move[NumberOfGyms][];
+        for (int i = 0; i < this.NumberOfGyms; i++)
+        {
+            moveGeneration[i] = new Move[NumberOfMoves];
+        }
+
+        return moveGeneration;
+    }
     private void Awake()
     {
         Physics.autoSimulation = false;
 
         this.LastResults = new GameFitness[NumberOfGyms];
+        this.currentMoveGeneration = this.MakeMoveGenerations();
+        this.nextMoveGeneration = this.MakeMoveGenerations();
+        this.swapMoveGeneration = this.MakeMoveGenerations();
+
         this.seed = Seed;
         this.gameToTest = new Game(seed, -1);
-        this.gameToTest.SetupWorld(new Vector2Int(16000, 9000));
+        this.gameToTest.SetupWorld(new Vector2Int(16000, 9000), this.NumberOfHumans);
 
         if (System.IO.File.Exists("game_inputs.dat"))
         {
@@ -94,7 +118,7 @@ public class GameRoot : MonoBehaviour
         // make the game once and then copy it anytime we need to use it later
     }
 
-    private void SetupGames(Game game, List<Move[]> moveSets)
+    private void SetupGames(Game game,Move[][] moveSets)
     {
         for (int i = 0; i < gyms.Count; i++)
         {
@@ -113,31 +137,29 @@ public class GameRoot : MonoBehaviour
         }
     }
 
-    private void EvolveGyms(List<Move[]> moveSets)
+    private void EvolveGyms()
     {
         this.ResetGyms();
-        this.currentMoveGeneration = EvolveMoveSets(moveSets);
+        this.currentMoveGeneration.CopyTo(this.swapMoveGeneration, 0);
+        EvolveMoveSets(this.swapMoveGeneration).CopyTo(this.currentMoveGeneration, 0);
 
         this.SetupGames(this.gameToTest, this.currentMoveGeneration);
     }
 
     private Move GenerateMove() => new Move(Mathf.Lerp(0.0f, 360.0f, 1.0f - Mathf.Pow(Random.value, 2.0f)), Mathf.Lerp(0.0f, 1000.0f, 1.0f - Mathf.Pow(Random.value, 2.0f)));
 
-    private List<Move[]> GenerateMoveSets()
+    private Move[][] GenerateMoveSets()
     {
-        List<Move[]> moveSets = new List<Move[]>();
         for (int i = 0; i < NumberOfGyms; i++)
         {
-            var moves = new Move[NumberOfMoves];
+            var moves = this.currentMoveGeneration[i];
             for (int j = 0; j < moves.Length; j++)
             {
                 moves[j] = GenerateMove(); 
             }
-
-            moveSets.Add(moves);
         }
 
-        return moveSets;
+        return this.currentMoveGeneration;
     }
 
 
@@ -147,35 +169,85 @@ public class GameRoot : MonoBehaviour
 
         if (choice <= 0.7)
         {
-            return (int)Mathf.Lerp(0, this.NumberOfGyms / 10, Mathf.Pow(Random.value, 2));
+            return (int)Mathf.Lerp(0, 10,  Mathf.Pow(Random.value, 2f));
         } else
         {
-            return Random.Range(this.NumberOfGyms / 10  + 1, NumberOfGyms);
+            return Random.Range(10, NumberOfGyms - 1);
         }
     }
-    private List<Move[]> EvolveMoveSets(List<Move[]> moves)
+
+    private double[] MakeWheel(double[] fitnesses)
+    {
+        double [] result = new double[fitnesses.Length];
+        double sum = fitnesses.Sum();
+
+        double previousProbabiltiy = 0.0d;
+        for (int i = 0; i < fitnesses.Length; i++)
+        {
+            previousProbabiltiy += (fitnesses[i] / sum); 
+            result[i] = previousProbabiltiy;
+        }
+
+        return result;
+    }
+
+    private int GetParentRoullette(double[] wheel)
+    {
+        var choice = (double)Random.Range(0f, 1.0f);
+        for (int i = 0; i < wheel.Length; i++)
+        {
+            if (choice < wheel[i])
+            {
+                return i;
+            }
+        }
+
+        return wheel.Length - 1;
+    }
+    private Move[][] EvolveMoveSets(Move[][] moves)
     {
         Generation++;
         Random.InitState((int)Random.value + Generation);
-        System.Array.Sort(this.LastResults, (left, right) => right.Fitness.CompareTo(left.Fitness));
-        var newMoves = new List<Move[]>();
+        System.Array.Sort(this.LastResults, (left, right) =>
+        {
+
+            var first = right.Score.CompareTo(left.Score);
+
+            if (first != 0)
+            {
+                return first;
+            }
+
+            var humans = right.HumansAlive.CompareTo(left.HumansAlive);
+
+            if (humans != 0)
+            {
+                return humans;
+            }
+
+            return right.Fitness.CompareTo(left.Fitness);
+        });
+
+        var wheel = MakeWheel(this.LastResults.Select(fitness => fitness.Fitness).ToArray());
+
+        var newMoves = this.nextMoveGeneration;
 
         int i = 0;
+        int moveIndex = 0;
 
         this.cumaltiveResults.Add(new GameFitness(this.LastResults[0]));
 
-        for (i = 0; i < this.NumberOfGyms / 10; i++)
+        for (i = 0; i < this.ElitismCount; i++)
         {
             var result = this.LastResults[i];
-            newMoves.Add(moves[result.Gym]);
+            moves[result.Gym].CopyTo(newMoves[moveIndex], 0);
+            moveIndex++;
         }
 
-        i = newMoves.Count();
-
-        for (; newMoves.Count <= (NumberOfGyms - 10); i += 2)
+        for (; moveIndex <= (NumberOfGyms - this.KillCount); moveIndex += 2)
         {
-            var parent1 = this.LastResults[GetParent()];
-            var parent2 = this.LastResults[GetParent()];
+            var parent1 = this.LastResults[GetParentRoullette(wheel)];
+            var parent2 = this.LastResults[GetParentRoullette(wheel)];
 
             var parent1Moves = moves[parent1.Gym];
             var parent2Moves = moves[parent2.Gym];
@@ -183,53 +255,63 @@ public class GameRoot : MonoBehaviour
 
             var choice = Random.Range(0, 2);
 
-            var child1 = new Move[NumberOfMoves];
-            var child2 = new Move[NumberOfMoves];
+            var child1 = this.nextMoveGeneration[moveIndex];
+            var child2 = this.nextMoveGeneration[moveIndex + 1];
 
             for (int j = 0; j < NumberOfMoves; j++)
             {
-                if (j < moves.Count / 10)
+                if (j < this.NumberOfMoves / 5 || j > this.NumberOfMoves - this.NumberOfMoves / 3)
                 {
                     child1[j] = parent1Moves[j];
                     child2[j] = parent2Moves[j];
                 }
+                else
+                {
+                    child1[j] = parent2Moves[j];
+                    child2[j] = parent1Moves[j];
+                }
 
-                child1[j] = parent2Moves[j];
-                child2[j] = parent1Moves[j];
+                if (Random.value <= this.GeneMutateChance)
+                {
+                    child1[j] = GenerateMove();
+                }
+
+                if (Random.value <= this.GeneMutateChance)
+                {
+                    child2[j] = GenerateMove();
+                }
             }
-
-            if (Random.value <= 0.2)
-            {
-                var leftMutate = Random.Range(0, NumberOfMoves / 10);
-                var rightMutate = Random.Range(NumberOfMoves / 10 + 1, NumberOfMoves);
-
-                child1[leftMutate] = GenerateMove();
-
-                child1[rightMutate] = GenerateMove();
-
-                child2[leftMutate] = GenerateMove();
-                child2[rightMutate] = GenerateMove();
-            }
-
-            newMoves.Add(child1);
-            newMoves.Add(child2);
-
         }
 
-        for (; newMoves.Count < NumberOfGyms; i+=2)
+        for (; moveIndex < NumberOfGyms; moveIndex +=2)
         {
-            var newMove = new Move[NumberOfMoves];
             for (int j = 0; j < NumberOfMoves; j++)
             {
-                newMove[j] = GenerateMove(); 
+                this.nextMoveGeneration[moveIndex][j] = GenerateMove(); 
             }
-            newMoves.Add(newMove);
         }
-        return newMoves;
+
+        return this.nextMoveGeneration;
     }
 
+    private int priorSlowdownCount =  1;
     private void Update()
     {
+        if (this.SlowDownCount < 1)
+        {
+            this.SlowDownCount = 1;
+        }
+
+        if (priorSlowdownCount != this.SlowDownCount)
+        {
+            foreach (var gym in this.gyms)
+            {
+                gym.SlowDown = this.SlowDownCount;
+            }
+
+            priorSlowdownCount = this.SlowDownCount;
+        }
+
         if (scored)
         {
             if (Input.GetKeyDown(KeyCode.Escape) || this.unattended)
@@ -253,7 +335,7 @@ public class GameRoot : MonoBehaviour
 
                 this.cumaltiveResults.Clear();
                 this.scored = false;
-                this.EvolveGyms(this.currentMoveGeneration);
+                this.EvolveGyms();
                 this.IterationGenerations = 0;
             }
             return;
@@ -322,6 +404,10 @@ public class GameRoot : MonoBehaviour
                 {
                     gyms[i].Plane.GetComponent<MeshRenderer>().material.color = Color.red;
 
+                } else if (!result.Won && !result.Lost)
+                {
+                    gyms[i].Plane.GetComponent<MeshRenderer>().material.color = Color.yellow;
+
                 }
                 if (result.Fitness == maxFitness)
                 {
@@ -341,7 +427,7 @@ public class GameRoot : MonoBehaviour
             }
             this.scored = false;
             this.IterationGenerations++;
-            this.EvolveGyms(this.currentMoveGeneration);
+            this.EvolveGyms();
         }
     }
 

@@ -329,14 +329,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Version: 1
-  m_UsePipelineSettings: 1
-  m_AdditionalLightsShadowResolutionTier: 2
-  m_LightLayerMask: 1
-  m_CustomShadowLayers: 0
-  m_ShadowLayerMask: 1
-  m_LightCookieSize: {x: 1, y: 1}
-  m_LightCookieOffset: {x: 0, y: 0}
 --- !u!1 &824567317
 GameObject:
   m_ObjectHideFlags: 0
@@ -382,13 +374,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f013865d2d5600f47bef89e14a147084, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  NumberOfGyms: 100
-  NumberOfHumans: 100
-  NumberOfZombies: 100
-  NumberOfMoves: 50
-  RowWidth: 10
-  Seed: 98475
-  NumberOfGenerationsToRun: 1000
+  NumberOfGyms: 500
+  NumberOfHumans: 25
+  NumberOfZombies: 20
+  NumberOfMoves: 30
+  RowWidth: 25
+  Seed: 9384257
+  NumberOfGenerationsToRun: 300
+  AngleVariation: 270
+  MagintudeVariation: 500
+  GeneMutateChance: 0.2
+  ElitismCount: 4
+  KillCount: 20
+  SlowDownCount: 1
   gymContainers: []
   gyms: []
 --- !u!23 &824567321
@@ -462,15 +460,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_IsGlobal: 1
-  priority: 0
-  blendDistance: 0
-  weight: 1
-  sharedProfile: {fileID: 11400000, guid: a6560a915ef98420e9faacc1c7438823, type: 2}
-  m_Colliders: []
-  m_PreviousLayer: 0
-  m_PreviousPriority: 0
-  m_InternalProfile: {fileID: 0}
 --- !u!4 &832575519
 Transform:
   m_ObjectHideFlags: 0
