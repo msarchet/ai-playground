@@ -19,7 +19,9 @@ public class GameRoot : MonoBehaviour
     public float GeneMutateChance = 0.01f;
     public int ElitismCount = 4;
     public int KillCount = 20;
-
+    public int FontSize = 24;
+    public int GUIWidth = 400;
+    public int GUIHeight= 50;
     [Range(1, 5000)]
     public int RenderCount = 10;
 
@@ -211,7 +213,7 @@ public class GameRoot : MonoBehaviour
 
     private int GetParentRoullette(double[] wheel)
     {
-        var choice = (double)Random.Range(0f, 1.0f);
+        var choice = (double)Mathf.Pow(Random.Range(0f, 1.0f), 2.0f);
         for (int i = 0; i < wheel.Length; i++)
         {
             if (choice < wheel[i])
@@ -228,13 +230,15 @@ public class GameRoot : MonoBehaviour
         Random.InitState((int)Random.value + Generation);
         System.Array.Sort(this.LastResults, (left, right) =>
         {
-
             var first = right.Score.CompareTo(left.Score);
 
-            if (first != 0)
-            {
-                return first;
-            }
+            if (first != 0) return first;
+
+            var fitness = right.Fitness.CompareTo(left.Fitness);
+
+            return fitness;
+
+
 
             //var humans = right.HumansAlive.CompareTo(left.HumansAlive);
 
@@ -243,7 +247,6 @@ public class GameRoot : MonoBehaviour
             //    return humans;
             //}
 
-            return right.Fitness.CompareTo(left.Fitness);
         });
 
         var wheel = MakeWheel(this.LastResults.Select(fitness => fitness.Fitness).ToArray());
@@ -273,9 +276,11 @@ public class GameRoot : MonoBehaviour
             var child1 = this.nextMoveGeneration[moveIndex];
             var child2 = this.nextMoveGeneration[moveIndex + 1];
 
+            int shortestGenes = this.NumberOfMoves; //parent1.UsedMoves < parent2.UsedMoves ? parent1.UsedMoves : parent2.UsedMoves;
+
             for (int j = 0; j < NumberOfMoves; j++)
             {
-                if (j < this.NumberOfMoves / 5 || j > this.NumberOfMoves - this.NumberOfMoves / 3)
+                if (j < shortestGenes / 5 || j > shortestGenes - shortestGenes / 3)
                 {
                     child1[j] = parent1Moves[j];
                     child2[j] = parent2Moves[j];
@@ -462,17 +467,51 @@ public class GameRoot : MonoBehaviour
     bool unattended = false;
     private void OnGUI()
     {
+        int fontSize = this.FontSize;
+        int height = this.GUIHeight;
+        int padding = 10;
+        int distance = height + padding;
+        int top = 10;
+        int left = 50;
+        int width = this.GUIWidth;
+
         GUI.color = Color.black;
-        GUI.Label(new Rect(10, 10, 100, 25), $"Generation {this.Generation}");
+        GUI.skin.label.fontSize = fontSize;
+        GUI.skin.label.fontStyle = FontStyle.Bold;
+        GUI.skin.button.fontSize = fontSize;
+        GUI.skin.button.fontStyle = FontStyle.Bold;
+
+        GUI.Label(new Rect(left, top, width, height), $"Number of Gyms {this.NumberOfGyms}");
+        top += distance;
+
+        GUI.Label(new Rect(left, top, width, height), $"Generation {this.Generation}");
+        top += distance;
+
         if (this.cumaltiveResults.Any())
         {
-            GUI.Label(new Rect(10, 40, 200, 25), $"Max Fitness {this.cumaltiveResults.Last().Fitness}");
-            GUI.Label(new Rect(10, 80, 200, 25), $"Max Score {this.cumaltiveResults.Last().Score}");
+            GUI.Label(new Rect(left, top, width, height), $"Max Fitness {this.cumaltiveResults.Last().Fitness}");
+            top += distance;
+            GUI.Label(new Rect(left, top, width, height), $"Max Score {this.cumaltiveResults.Last().Score}");
+            top += distance;
+            GUI.Label(new Rect(left, top, width, height), $"Used Moves {this.cumaltiveResults.Last().UsedMoves}");
+            top += distance;
         }
 
-        if (GUI.Button(new Rect(10, 100, 200, 25), this.unattended ? "unattended" : "attended"))
+
+        if (GUI.Button(new Rect(left, top, width, height), this.unattended ? "unattended" : "attended"))
         {
             this.unattended = !this.unattended;
         }
+
+        top += distance;
+        var slowdownSpeed = (int)GUI.HorizontalSlider(new Rect(left, top, width, height), this.SlowDownCount, 1.0f, 100.0f);
+        top += distance;
+
+        if (slowdownSpeed > 0 && slowdownSpeed < 100 && slowdownSpeed != this.SlowDownCount)
+        {
+            this.SlowDownCount = slowdownSpeed;
+        }
+
+
     }
 }

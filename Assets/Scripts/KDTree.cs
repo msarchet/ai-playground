@@ -98,6 +98,8 @@ public class KDTree<T> where T : IHasCoordinate
             node.Depth = 0;
             ReleaseNode(node.LeftChild);
             ReleaseNode(node.RightChild);
+            node.LeftChild = null;
+            node.RightChild = null;
             nodeCache.Push(node);
         }
     }

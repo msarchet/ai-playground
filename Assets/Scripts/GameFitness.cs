@@ -6,6 +6,7 @@
     public double Fitness;
     public int Gym;
     public int HumansAlive;
+    public int UsedMoves;
 
     public GameFitness() { }
 
@@ -21,5 +22,6 @@
         this.Fitness = gameFitness.Fitness;
         this.Gym = gameFitness.Gym;
         this.HumansAlive = gameFitness.HumansAlive; 
+        this.UsedMoves = gameFitness.UsedMoves;
     }
 }

@@ -278,7 +278,7 @@ public class Game
                 this.GameState.NumberOfKilledZombies += 1;
 
                 // Add Some fitness for killing a zombie
-                this.Fitness.Fitness += 100 * 1 + closestDistance / (400 * 400);
+                this.Fitness.Fitness += 500;//100 * 1 + closestDistance / (400 * 400);
 
                 if (wasTargetAsh)
                 {
@@ -302,46 +302,40 @@ public class Game
                 this.GameState.KilledHumans.Add(closestHuman);
 
                 // Remove some fitness for a human dying
-
+                
                 this.GameState.HumanClosestToZombie.Remove(zombiePair.Key);
 
-                if (newDistanceToAsh - AshKillRadiusSquared < ashMaxMoveDistance)
+                if (newDistanceToAsh > distanceToAsh)
                 {
-                    this.Fitness.Fitness -= 500;
-                }
-                if (newDistanceToAsh <= UnusedMovement)
-                {
-                    this.Fitness.Fitness -= 100 * (distanceToAsh / UnusedMovement);
+                    if (newDistanceToAsh - AshKillRadiusSquared < ashMaxMoveDistance)
+                    {
+                        this.Fitness.Fitness -= 50;
+                    }
+                    //if (newDistanceToAsh <= UnusedMovement)
+                    //{
+                    //    this.Fitness.Fitness -= 10 * (distanceToAsh / UnusedMovement);
+                    //}
+
                 }
             }
 
             
         }
 
-        if (herdingZombies == 0 && this.GameState.KilledZombies.Count == 0)
+        if (herdingZombies == 0 || this.GameState.KilledZombies.Count == 0)
         {
             this.UnusedMovement += leftMovement;
         }
+
         this.Fitness.Fitness += 5 * ((herdingZombies - 1) * (this.GameState.KilledZombies.Count / this.GameState.Zombies.Count)); ;
 
         int couldKill = 0;
         foreach (var distancePair in distanceToKill)
         {
-            if (distancePair.Value - AshKillRadiusSquared - ashMaxMoveDistance <= 0)
-            {
-                this.Fitness.Fitness -= 10;
-            }
-
-            if ((distancePair.Value - AshKillRadiusSquared) < leftMovement)
+            if ((distancePair.Value - AshKillRadiusSquared) < UnusedMovement)
             {
                 couldKill++;
-                this.Fitness.Fitness -= 10;
             } 
-
-            if ((priorDistanceToKill[distancePair.Key] - AshKillRadiusSquared < leftMovement))
-            {
-                this.Fitness.Fitness -= 40;
-            }
 
             if (distancePair.Value > priorDistanceToKill[distancePair.Key])
             {
@@ -349,6 +343,7 @@ public class Game
             }         
         }
 
+        this.Fitness.Fitness -= 10 * couldKill;
         if (couldKill == this.GameState.Zombies.Count)
         {
             this.Fitness.Fitness -= 200;
@@ -391,9 +386,10 @@ public class Game
         foreach (var killed in this.GameState.KilledHumans)
         {
             this.GameState.Humans.Remove(killed);
+            this.Fitness.Fitness *= .5;
             if (distancesToHumans[killed] <= UnusedMovement)
             {
-                this.Fitness.Fitness -= 50 * (this.startingNumberOfHumans - this.GameState.Humans.Count);
+                this.Fitness.Fitness -= 100;// * (this.startingNumberOfHumans - this.GameState.Humans.Count);
             }
         }
 
@@ -477,6 +473,7 @@ public class Game
 
         this.Fitness.Score = this.GameState.Score;
         this.Fitness.HumansAlive = this.GameState.Humans.Count;
+        this.Fitness.UsedMoves = this.GameState.NumberOfUsedMoves;
         if (maxScore > 0)
         {
            this.Fitness.Fitness *= 1 + (2 * this.GameState.Score / maxScore);
