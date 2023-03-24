@@ -5,10 +5,15 @@ using UnityEngine;
 public class GameState
 {
     public static GameState CachedState { get; set; }
+
     public Dictionary<int, Vector2Int> Humans { get; } = new Dictionary<int, Vector2Int>();
+
     public Dictionary<int, Vector2Int> Zombies { get; } = new Dictionary<int, Vector2Int>();
+
     public Dictionary<int, Vector2Int> ZombieNextMoves { get; set; } = new Dictionary<int, Vector2Int>();
+
     public Dictionary<int, int> HumanClosestToZombie { get; set; } = new Dictionary<int, int>();
+
     public Vector2Int Ash { get; set; } = new Vector2Int(0, 0);
 
     public HashSet<int> KilledHumans { get; set;  } = new HashSet<int>();

@@ -1,12 +1,22 @@
 ﻿using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 
 public static class Helpers
 {
     private static Dictionary<int, double> FibMap = new Dictionary<int, double>();
-    public static Vector3 ConvertPositionToWorldPosition(Vector2Int position, Vector2 worldSize) => new Vector3(position.x / worldSize.x, 0.5f, position.y / worldSize.y);
 
-    public static double MagnitudeSquared(Vector2Int position1, Vector2Int position2) => System.Math.Pow(position1.x - position2.x, 2) + System.Math.Pow(position1.y - position2.y, 2);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static double MagnitudeSquared(int x1, int x2, int y1, int y2)
+    {
+        return System.Math.Pow(x1 - x2, 2) + System.Math.Pow(y1 - y2, 2);
+    }
+
+
+    //public static double MagnitudeSquared(Vector2Int position1, Vector2Int position2)
+    //{
+    //    return System.Math.Pow(position1.x - position2.x, 2) + System.Math.Pow(position1.y - position2.y, 2);
+    //}
 
     public static double GetFib(int n)
     {

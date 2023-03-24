@@ -56,6 +56,8 @@ public class Gyms : MonoBehaviour
     }
 
 
+    public bool Render { get; private set; } = true;
+
     public void Setup(Game game, Move[] moves)
     {
         if (this.setup)
@@ -69,18 +71,18 @@ public class Gyms : MonoBehaviour
         foreach (var zombie in this.Game.GameState.Zombies)
         {
             var zombieObject = this.zombies[zombie.Key];
-            zombieObject.SetActive(true);
+            zombieObject.SetActive(this.Render);
             zombieObject.transform.localPosition = new Vector3(zombie.Value.x / 100.0f, 1.0f, zombie.Value.y / 100.0f);
         }
 
         foreach (var human in this.Game.GameState.Humans)
         {
             var humanObject = this.humans[human.Key];
-            humanObject.SetActive(true);
+            humanObject.SetActive(this.Render);
             humanObject.transform.localPosition = new Vector3(human.Value.x / 100.0f, 1.0f, human.Value.y / 100.0f);
         }
 
-        ash.SetActive(true);
+        ash.SetActive(this.Render);
         this.setup = true;
     }
 
@@ -105,9 +107,51 @@ public class Gyms : MonoBehaviour
     }
 
     private int slowdownCount = 0;
+    public void ToggleRender()
+    {
+        var wasRendering = this.Render;
+        this.Render = !this.Render;
+
+        foreach (var zombie in this.zombies)
+        {
+            if (wasRendering)
+            {
+                zombie.Value.SetActive(this.Render);
+            }
+            else if (this.Game.GameState.Zombies.TryGetValue(zombie.Key, out var zombiePosition))
+            {
+                zombie.Value.SetActive(this.Render);
+                zombie.Value.transform.localPosition = new Vector3(zombiePosition.x / 100.0f, 1.0f, zombiePosition.y / 100.0f);
+            }
+        }
+
+        foreach (var human in this.humans)
+        {
+            if (wasRendering)
+            {
+                human.Value.SetActive(this.Render);
+            }
+            else if (this.Game.GameState.Humans.TryGetValue(human.Key, out var humanPosition))
+            {
+                human.Value.SetActive(this.Render);
+                human.Value.transform.localPosition = new Vector3(humanPosition.x / 100.0f, 1.0f, humanPosition.y / 100.0f);
+            }
+        }
+
+        if (wasRendering)
+        {
+            this.ash.SetActive(this.Render);
+        } else
+        {
+            this.ash.SetActive(this.Render);
+            this.ash.transform.localPosition = new Vector3(this.Game.GameState.Ash.x / 100.0f, 1.0f, this.Game.GameState.Ash.y / 100.0f);
+        }
+
+        this.Plane.SetActive(this.Render);
+    }
+
     void FixedUpdate()
     {
-
         if (!this.setup)
         {
             return;
@@ -139,30 +183,34 @@ public class Gyms : MonoBehaviour
         var nextMove = new Vector2Int((int)nextMoveX, (int)nextMoveY);
         this.Game.TickNextState(nextMove);
 
-        foreach (var zombie in this.Game.GameState.Zombies)
+        if (this.Render)
         {
-            if (this.zombies.TryGetValue(zombie.Key, out GameObject zombieObject))
+            foreach (var zombie in this.Game.GameState.Zombies)
             {
-                zombieObject.transform.localPosition = new Vector3(zombie.Value.x / 100.0f, 1.0f, zombie.Value.y / 100.0f);
+                if (this.zombies.TryGetValue(zombie.Key, out GameObject zombieObject))
+                {
+                    zombieObject.transform.localPosition = new Vector3(zombie.Value.x / 100.0f, 1.0f, zombie.Value.y / 100.0f);
+                }
             }
-        }
 
-        this.ash.transform.localPosition = new Vector3(this.Game.GameState.Ash.x / 100.0f, 1.0f, this.Game.GameState.Ash.y / 100.0f);
+            this.ash.transform.localPosition = new Vector3(this.Game.GameState.Ash.x / 100.0f, 1.0f, this.Game.GameState.Ash.y / 100.0f);
 
-        foreach (var zombie in this.Game.GameState.KilledZombies)
-        {
-            if (this.zombies.TryGetValue(zombie, out GameObject zombieObject))
+            foreach (var zombie in this.Game.GameState.KilledZombies)
             {
-                zombieObject.SetActive(false);
+                if (this.zombies.TryGetValue(zombie, out GameObject zombieObject))
+                {
+                    zombieObject.SetActive(false);
+                }
             }
-        }
 
-        foreach (var human in this.Game.GameState.KilledHumans)
-        {
-            if (this.humans.TryGetValue(human, out GameObject humanObject))
+            foreach (var human in this.Game.GameState.KilledHumans)
             {
-                humanObject.SetActive(false);
+                if (this.humans.TryGetValue(human, out GameObject humanObject))
+                {
+                    humanObject.SetActive(false);
+                }
             }
+
         }
 
         this.Game.PostTickMoveAndCleanup();

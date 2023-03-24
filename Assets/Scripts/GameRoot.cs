@@ -20,6 +20,9 @@ public class GameRoot : MonoBehaviour
     public int ElitismCount = 4;
     public int KillCount = 20;
 
+    [Range(1, 5000)]
+    public int RenderCount = 10;
+
     [Range(1, 100)]
     public int SlowDownCount = 1;
 
@@ -96,7 +99,7 @@ public class GameRoot : MonoBehaviour
         {
             this.gameToTest.InitializeRandomGame(NumberOfHumans, NumberOfZombies);
         }
-        
+
 
         this.currentMoveGeneration = GenerateMoveSets();
 
@@ -118,7 +121,7 @@ public class GameRoot : MonoBehaviour
         // make the game once and then copy it anytime we need to use it later
     }
 
-    private void SetupGames(Game game,Move[][] moveSets)
+    private void SetupGames(Game game, Move[][] moveSets)
     {
         for (int i = 0; i < gyms.Count; i++)
         {
@@ -146,7 +149,15 @@ public class GameRoot : MonoBehaviour
         this.SetupGames(this.gameToTest, this.currentMoveGeneration);
     }
 
-    private Move GenerateMove() => new Move(Mathf.Lerp(0.0f, 360.0f, 1.0f - Mathf.Pow(Random.value, 2.0f)), Mathf.Lerp(0.0f, 1000.0f, 1.0f - Mathf.Pow(Random.value, 2.0f)));
+    private Move recycledMoved = new Move(0.0f, 0.0f);
+
+    private Move GenerateMove()
+    {
+        recycledMoved.Angle = Mathf.Lerp(0.0f, 360.0f, Random.value);
+        recycledMoved.Magintude =    Mathf.Lerp(0.0f, 1000.0f, Random.value);
+        return recycledMoved;
+    }
+
 
     private Move[][] GenerateMoveSets()
     {
@@ -184,7 +195,14 @@ public class GameRoot : MonoBehaviour
         double previousProbabiltiy = 0.0d;
         for (int i = 0; i < fitnesses.Length; i++)
         {
-            previousProbabiltiy += (fitnesses[i] / sum); 
+            if (sum < 0.0)
+            {
+                previousProbabiltiy += 1.0 - (fitnesses[i] / sum); 
+
+            } else
+            {
+                previousProbabiltiy += (fitnesses[i] / sum); 
+            }
             result[i] = previousProbabiltiy;
         }
 
@@ -218,12 +236,12 @@ public class GameRoot : MonoBehaviour
                 return first;
             }
 
-            var humans = right.HumansAlive.CompareTo(left.HumansAlive);
+            //var humans = right.HumansAlive.CompareTo(left.HumansAlive);
 
-            if (humans != 0)
-            {
-                return humans;
-            }
+            //if (humans != 0)
+            //{
+            //    return humans;
+            //}
 
             return right.Fitness.CompareTo(left.Fitness);
         });
@@ -244,16 +262,13 @@ public class GameRoot : MonoBehaviour
             moveIndex++;
         }
 
-        for (; moveIndex <= (NumberOfGyms - this.KillCount); moveIndex += 2)
+        for (; moveIndex < (NumberOfGyms - this.KillCount); moveIndex += 2)
         {
             var parent1 = this.LastResults[GetParentRoullette(wheel)];
             var parent2 = this.LastResults[GetParentRoullette(wheel)];
 
             var parent1Moves = moves[parent1.Gym];
             var parent2Moves = moves[parent2.Gym];
-
-
-            var choice = Random.Range(0, 2);
 
             var child1 = this.nextMoveGeneration[moveIndex];
             var child2 = this.nextMoveGeneration[moveIndex + 1];
@@ -295,6 +310,8 @@ public class GameRoot : MonoBehaviour
     }
 
     private int priorSlowdownCount =  1;
+
+    private int priorRenderCount = -1;
     private void Update()
     {
         if (this.SlowDownCount < 1)
@@ -302,14 +319,25 @@ public class GameRoot : MonoBehaviour
             this.SlowDownCount = 1;
         }
 
-        if (priorSlowdownCount != this.SlowDownCount)
+        if (priorSlowdownCount != this.SlowDownCount || priorRenderCount != this.RenderCount)
         {
             foreach (var gym in this.gyms)
             {
                 gym.SlowDown = this.SlowDownCount;
+                if (gym.Game.id < this.RenderCount && !gym.Render)
+                {
+                    gym.ToggleRender();
+                } else if (gym.Game.id >= this.RenderCount)
+                {
+                    if (gym.Render)
+                    {
+                        gym.ToggleRender();
+                    }
+                }
             }
 
             priorSlowdownCount = this.SlowDownCount;
+            priorRenderCount = this.RenderCount;
         }
 
         if (scored)

@@ -375,17 +375,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   NumberOfGyms: 500
-  NumberOfHumans: 25
-  NumberOfZombies: 20
-  NumberOfMoves: 30
+  NumberOfHumans: 10
+  NumberOfZombies: 10
+  NumberOfMoves: 45
   RowWidth: 25
-  Seed: 9384257
-  NumberOfGenerationsToRun: 300
+  Seed: 89273
+  NumberOfGenerationsToRun: 400
   AngleVariation: 270
   MagintudeVariation: 500
   GeneMutateChance: 0.2
   ElitismCount: 4
-  KillCount: 20
+  KillCount: 0
+  RenderCount: 10
   SlowDownCount: 1
   gymContainers: []
   gyms: []
