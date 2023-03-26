@@ -6,12 +6,7 @@ public class Game
     private Vector2Int size;
     Dictionary<int, double> distanceToKill = new Dictionary<int, double>();
     Dictionary<int, double> priorDistanceToKill = new Dictionary<int, double>();
-    Dictionary<int, Vector2IntHasCoordinate> humanKdMaps = new Dictionary<int, Vector2IntHasCoordinate>();
-    Dictionary<int, Vector2IntHasCoordinate> zombieKdMaps = new Dictionary<int, Vector2IntHasCoordinate>();
-    public List<Vector2IntHasCoordinate> humanList = new List<Vector2IntHasCoordinate>();    
-    public List<Vector2IntHasCoordinate> zombieList = new List<Vector2IntHasCoordinate>();    
-
-    Vector2IntHasCoordinate ashKdMap = new Vector2IntHasCoordinate(0);
+    Dictionary<int, int[]> humanKdMaps = new Dictionary<int, int[]>();
 
     private int AshKillRadius = 2000;
     public int AshKillRadiusSquared;
@@ -39,8 +34,7 @@ public class Game
         this.size = game.size;
         for (int i = 0; i < 100; i++)
         {
-            this.humanKdMaps.Add(i, new Vector2IntHasCoordinate(i));
-            this.zombieKdMaps.Add(i, new Vector2IntHasCoordinate(i));
+            this.humanKdMaps.Add(i, new int[2]);
         }
     }
 
@@ -49,8 +43,8 @@ public class Game
         this.GameState.CopyFrom(game.GameState);
         this.Fitness.CopyFrom(game.Fitness);
         this.PlayedMoves.Clear();
-        
-        foreach(Move move in game.PlayedMoves)
+
+        foreach (Move move in game.PlayedMoves)
         {
             this.PlayedMoves.Add(move);
         }
@@ -72,32 +66,12 @@ public class Game
         this.startingNumberOfHumans = numberOfHumans;
         for (int i = 0; i < numberOfHumans; i++)
         {
-            this.GameState.Humans.Add(i, new Vector2Int(Random.Range(0, this.size.x), Random.Range(0, this.size.y))); 
-        }    
+            this.GameState.Humans.Add(i, new Vector2Int(Random.Range(0, this.size.x), Random.Range(0, this.size.y)));
+        }
 
         for (int i = 0; i < numberOfZombies; i++)
         {
-            var zombie = new Vector2Int(Random.Range(0, this.size.x), Random.Range(0, this.size.y));
-            this.GameState.Zombies.Add(i, zombie); 
-
-            var closestHuman = 0;
-            var closestDistance = double.MaxValue;
-            // TODO: Find a better lookup than the current
-
-            foreach (var humanPair in this.GameState.Humans)
-            {
-                var human = humanPair.Value;
-                var distanceToHuman = Helpers.MagnitudeSquared(zombie.x, human.x, zombie.y, human.y);
-
-                if (distanceToHuman <= closestDistance)
-                {
-                    closestDistance = distanceToHuman;
-                    closestHuman = humanPair.Key;
-                }
-            }
-
-            this.GameState.HumanClosestToZombie[i] = closestHuman;
-
+            this.GameState.Zombies.Add(i, new Vector2Int(Random.Range(0, this.size.x), Random.Range(0, this.size.y)));
         }
 
         this.GameState.Ash = new Vector2Int(Random.Range(0, this.size.x), Random.Range(0, this.size.y));
@@ -105,33 +79,13 @@ public class Game
 
     public void PreBuildHumanToZombieMap()
     {
-        foreach (var zombiePair in this.GameState.Zombies)
-        {
-            var closestHuman = 0;
-            var closestDistance = double.MaxValue;
-            // TODO: Find a better lookup than the current
-
-            foreach (var humanPair in this.GameState.Humans)
-            {
-                var human = humanPair.Value;
-                var distanceToHuman = Helpers.MagnitudeSquared(zombiePair.Value.x, human.x, zombiePair.Value.y, human.y);
-
-                if (distanceToHuman <= closestDistance)
-                {
-                    closestDistance = distanceToHuman;
-                    closestHuman = humanPair.Key;
-                }
-            }
-
-            this.GameState.HumanClosestToZombie[zombiePair.Key] = closestHuman;
-
-        }
     }
 
 
-    private KDTree<Vector2IntHasCoordinate> humanPositionTree = new KDTree<Vector2IntHasCoordinate>(2);
-    private List<Vector2IntHasCoordinate> results = new List<Vector2IntHasCoordinate>();
     private double UnusedMovement = 0;
+    private int priorHumanCount = -1;
+    private int[][] points;
+    private KDTree humanPositionTree = new KDTree(2, new int[0][] {});
     public void TickNextState(Vector2Int ashPosition)
     {
         if (this.GameState.Phase != GamePhase.Playing)
@@ -142,7 +96,7 @@ public class Game
         this.GameState.NumberOfUsedMoves++;
 
         var moveMagnitude = Helpers.MagnitudeSquared(this.GameState.Ash.x, ashPosition.x, this.GameState.Ash.y, ashPosition.y);
-        var ashMaxMoveDistance = Helpers.MagnitudeSquared(0, 0, 1000, 100);
+        var ashMaxMoveDistance = Helpers.MagnitudeSquared(0, 1000, 0, 1000);
         var leftMovement = ashMaxMoveDistance - moveMagnitude;
         var herdingZombies = 0;
         //KDTree<Vector2IntHasCoordinate> zombieTree = new KDTree<Vector2IntHasCoordinate>(2);
@@ -154,88 +108,33 @@ public class Game
         //}
         //zombieTree.Buildtree(zombieList);
 
-        if (humanList.Count == 0)
+
+        if (priorHumanCount != this.GameState.Humans.Count)
         {
+            var points = new int[GameState.Humans.Count][];
+            int i = 0;
             foreach (var humanPair in this.GameState.Humans)
             {
-                this.humanKdMaps[humanPair.Key].Position = humanPair.Value;
-                humanList.Add(this.humanKdMaps[humanPair.Key]);
+                points[i] = new int[3];
+                points[i][0] = humanPair.Value.x;
+                points[i][1] = humanPair.Value.y;
+                points[i][2] = humanPair.Key;
+                i++;
             }
-            humanPositionTree.ClearTree();
-            humanPositionTree.Buildtree(humanList);
-        }
 
+            humanPositionTree.ReleaseTree();
+            humanPositionTree.BuildTree(points);
+            priorHumanCount = this.GameState.Humans.Count;
+        }
 
         foreach (var zombiePair in this.GameState.Zombies)
         {
             var zombie = zombiePair.Value;
 
-            var closestDistance = double.MaxValue;
-            var closestHuman = 0;
+            var nearest = humanPositionTree.Nearest(new[] { zombie.x, zombie.y });
+            var closestDistance = Helpers.MagnitudeSquared(zombie.x, nearest.Item[0], zombie.y, nearest.Item[1]);
 
-            // can we search outwards from the point of the zombie
-            // to find the closest human instead
-            if (this.GameState.HumanClosestToZombie.TryGetValue(zombiePair.Key, out int humanId))
-            {
-                if (this.GameState.Humans.ContainsKey(humanId))
-                {
-                    closestHuman = humanId;
-
-                    closestDistance = Helpers.MagnitudeSquared(zombie.x, this.GameState.Humans[humanId].x, zombie.y, this.GameState.Humans[humanId].y);
-                } else
-                {
-                    this.GameState.HumanClosestToZombie.Remove(zombiePair.Key);
-                }
-            }
-
-            bool wasTargetAsh = false;
-
-
-            if (closestDistance == double.MaxValue)
-            {
-                wasTargetAsh = true;
-
-                int increment = this.size.x / 20;
-                int left = zombie.x - increment;
-                int right = zombie.x + increment;
-                int top = zombie.y + increment;
-                int bottom = zombie.y - increment;
-
-                results.Clear();
-                while (left >= -increment || right <= size.x + increment || bottom >= -increment || top <= size.y + increment)
-                {
-                    humanPositionTree.SearchRange(new[] { left, bottom }, new[] { right, top }, results);
-
-                    if (results.Count > 0)
-                    {
-                        break;
-                    }
-
-                    left -= increment;
-                    right += increment;
-                    top += increment;
-                    bottom -= increment;
-                }
-
-                foreach (var result in results)
-                {
-                    var human = result.Position;
-                    var distanceToHuman = Helpers.MagnitudeSquared(zombie.x, human.x, zombie.y, human.y);
-
-                    if (distanceToHuman <= closestDistance)
-                    {
-                        closestDistance = distanceToHuman;
-                        closestHuman = result.Id;
-                    }
-                }
-
-                this.GameState.HumanClosestToZombie[zombiePair.Key] = closestHuman;
-
-                results.Clear();
-
-            }
-
-            var targetPosition = this.GameState.Humans[closestHuman];
+            var targetPosition = new Vector2Int(nearest.Item[0], nearest.Item[1]);
             var distanceToAsh = Helpers.MagnitudeSquared(this.GameState.Ash.x, zombie.x, this.GameState.Ash.y, zombie.y);
 
             priorDistanceToKill.Add(zombiePair.Key, distanceToAsh);
@@ -246,20 +145,15 @@ public class Game
             {
                 targetPosition = ashPosition;
                 isTargetAsh = true;
-                this.GameState.HumanClosestToZombie.Remove(zombiePair.Key);
 
                 // Add some fitness for redirecting zombies
-                this.Fitness.Fitness += 5;
-                if (wasTargetAsh)
-                {
-                    this.Fitness.Fitness += 5;
-                    herdingZombies++;
-                }
+                this.Fitness.Fitness += 50;
+                herdingZombies++;
 
-                if (closestDistance <= (400 * 400))
-                {
-                    this.Fitness.Fitness += 50 * this.GameState.Humans.Count;
-                }
+                //if (closestDistance <= (400 * 400))
+                //{
+                //    this.Fitness.Fitness += 50 * this.GameState.Humans.Count;
+                //}
             }
 
             var newPosition = Vector2.MoveTowards(zombie, targetPosition, 400.0f);
@@ -268,7 +162,7 @@ public class Game
             var newDistanceToAsh = Helpers.MagnitudeSquared(nextPosition.x, ashPosition.x, nextPosition.y, ashPosition.y);
             if (newDistanceToAsh < distanceToAsh)
             {
-                this.Fitness.Fitness += 50;
+                this.Fitness.Fitness += 200;
             }
             this.GameState.ZombieNextMoves.Add(zombiePair.Key, nextPosition);
 
@@ -279,11 +173,6 @@ public class Game
 
                 // Add Some fitness for killing a zombie
                 this.Fitness.Fitness += 500;//100 * 1 + closestDistance / (400 * 400);
-
-                if (wasTargetAsh)
-                {
-                    this.Fitness.Fitness += 50;
-                }
 
                 if (closestDistance > 400 * 400)
                 {
@@ -299,12 +188,10 @@ public class Game
 
             if (!isTargetAsh && closestDistance == 0)
             {
-                this.GameState.KilledHumans.Add(closestHuman);
+                this.GameState.KilledHumans.Add(nearest.Item[2]);
 
                 // Remove some fitness for a human dying
                 
-                this.GameState.HumanClosestToZombie.Remove(zombiePair.Key);
-
                 if (newDistanceToAsh > distanceToAsh)
                 {
                     if (newDistanceToAsh - AshKillRadiusSquared < ashMaxMoveDistance)
@@ -324,10 +211,11 @@ public class Game
 
         if (herdingZombies == 0 || this.GameState.KilledZombies.Count == 0)
         {
-            this.UnusedMovement += leftMovement;
+            this.Fitness.Fitness -= 10 * leftMovement / ashMaxMoveDistance;
+            this.UnusedMovement += ashMaxMoveDistance;
         }
 
-        this.Fitness.Fitness += 5 * ((herdingZombies - 1) * (this.GameState.KilledZombies.Count / this.GameState.Zombies.Count)); ;
+        this.Fitness.Fitness += 25 * ((herdingZombies - 1) * (this.GameState.KilledZombies.Count / this.GameState.Zombies.Count)); ;
 
         int couldKill = 0;
         foreach (var distancePair in distanceToKill)
@@ -339,7 +227,7 @@ public class Game
 
             if (distancePair.Value > priorDistanceToKill[distancePair.Key])
             {
-                this.Fitness.Fitness -= 40;
+                this.Fitness.Fitness -= 50;
             }         
         }
 
@@ -354,29 +242,19 @@ public class Game
         this.GameState.Ash = ashPosition;
 
 
-        var killedHumanCount = this.GameState.KilledHumans.Count;
         var distanceToClosestHumanKilled = double.MaxValue;
-        var distancesToHumans = new Dictionary<int, double>();
 
-        foreach (var human in this.GameState.Humans)
+        foreach (var humanPair in this.GameState.Humans)
         {
-            var distanceToHuman = Helpers.MagnitudeSquared(this.GameState.Ash.x, human.Value.x, this.GameState.Ash.y, human.Value.y);
-            distancesToHumans.Add(human.Key, distanceToHuman);
-            var priorDistance = Helpers.MagnitudeSquared(priorPosition.x, human.Value.x, priorPosition.y, human.Value.y);
+            var human = this.GameState.Humans[humanPair.Key];
 
-            if (distanceToHuman > priorDistance)
+            if (this.GameState.KilledHumans.Contains(humanPair.Key))
             {
-                this.Fitness.Fitness -= 0;
-            } else if (distanceToHuman < priorDistance)
-            {
-                this.Fitness.Fitness += 25;
-            }
-
-            if (this.GameState.KilledHumans.Contains(human.Key))
-            {
-                if (distanceToHuman < distanceToClosestHumanKilled)
+                var distanceToHuman = Helpers.MagnitudeSquared(this.GameState.Ash.x, human.x, this.GameState.Ash.y, human.y);
+                var priorDistance = Helpers.MagnitudeSquared(priorPosition.x, human.x, priorPosition.y, human.y);
+                if (distanceToHuman - ashMaxMoveDistance < priorDistance)
                 {
-                    distanceToClosestHumanKilled = distanceToHuman;
+                    this.Fitness.Fitness -= 500;
                 }
             }
         }
@@ -386,26 +264,16 @@ public class Game
         foreach (var killed in this.GameState.KilledHumans)
         {
             this.GameState.Humans.Remove(killed);
-            this.Fitness.Fitness *= .5;
-            if (distancesToHumans[killed] <= UnusedMovement)
-            {
-                this.Fitness.Fitness -= 100;// * (this.startingNumberOfHumans - this.GameState.Humans.Count);
-            }
         }
 
-        if (this.GameState.KilledHumans.Count > 0)
-        {
-            this.humanList.Clear();
-        }
-
-        if (distanceToClosestHumanKilled != double.MaxValue)
-        {
-            this.Fitness.Fitness -= 50;
-        }
+        //if (distanceToClosestHumanKilled != double.MaxValue)
+        //{
+        //    this.Fitness.Fitness -= 50;
+        //}
 
         // calculate the score
         var humansRemaining = this.GameState.Humans.Count;
-        this.Fitness.Fitness += humansRemaining * 100;
+        //this.Fitness.Fitness += humansRemaining * 100;
 
         if (humansRemaining == 0)
         {
@@ -434,7 +302,7 @@ public class Game
             if (this.GameState.Zombies.Count == 0)
             {
                 this.GameState.Phase = GamePhase.Won;
-                this.Fitness.Fitness += 50;
+                this.Fitness.Fitness += 500 * humansRemaining;
             }
 
         }
@@ -447,10 +315,6 @@ public class Game
     {
         this.GameState.ZombieNextMoves.Clear();
         this.GameState.KilledZombies.Clear();
-        if (this.GameState.KilledHumans.Count > 0)
-        {
-            humanList.Clear();
-        }
 
         this.GameState.KilledHumans.Clear();
     }

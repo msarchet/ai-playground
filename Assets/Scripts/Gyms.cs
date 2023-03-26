@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(MeshRenderer), typeof(MeshFilter))]
@@ -6,7 +7,7 @@ public class Gyms : MonoBehaviour
 {
     public Vector2Int Size = new Vector2Int(16000, 9000);
     public Game Game;
-    public Move[] Moves;
+    public double[][] Moves;
     public GameObject Plane;
     public int Move = 0;
     public int SlowDown = 1;
@@ -58,7 +59,7 @@ public class Gyms : MonoBehaviour
 
     public bool Render { get; private set; } = true;
 
-    public void Setup(Game game, Move[] moves)
+    public void Setup(Game game, double[][] moves)
     {
         if (this.setup)
         {
@@ -175,10 +176,10 @@ public class Gyms : MonoBehaviour
         }
 
         slowdownCount = 0;
-        var nextMoveX = this.Game.GameState.Ash.x + Mathf.Cos(Moves[Move].Angle) * Moves[Move].Magintude;
-        var nextMoveY = this.Game.GameState.Ash.y + Mathf.Sin(Moves[Move].Angle) * Moves[Move].Magintude;
-        nextMoveX = Mathf.Min(Mathf.Max(nextMoveX, 0), this.Size.x);
-        nextMoveY = Mathf.Min(Mathf.Max(nextMoveY, 0), this.Size.y);
+        var nextMoveX = this.Game.GameState.Ash.x + Math.Cos(Moves[Move][0]) * Moves[Move][1];
+        var nextMoveY = this.Game.GameState.Ash.y + Math.Sin(Moves[Move][0]) * Moves[Move][1];
+        nextMoveX = Math.Min(Math.Max(nextMoveX, 0), this.Size.x);
+        nextMoveY = Math.Min(Math.Max(nextMoveY, 0), this.Size.y);
 
         var nextMove = new Vector2Int((int)nextMoveX, (int)nextMoveY);
         this.Game.TickNextState(nextMove);

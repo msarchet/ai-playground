@@ -1,87 +1,94 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public class Vector2IntHasCoordinate : IHasCoordinate
+public class KDTree
 {
-    public Vector2Int Position { get; set; }
-    public int Id { get;  }
-    public Vector2IntHasCoordinate(int id)
-    {
-        this.Id = id;
-    }
-
-    public int GetCoordinate(int dimension)
-    {
-        if (dimension == 0)
-        {
-            return Position.x;
-        }
-
-        if (dimension == 1)
-        {
-            return Position.y;
-        }
-
-        throw new ArgumentException("Dimension is out of range");
-    }
-
-    public bool GetInBounds(int[] min, int[] max)
-    {
-        return Position.x >= min[0] && Position.x <= max[0] && Position.y >= min[1] && Position.y <= max[1];    
-    }
-}
-public class KDTree<T> where T : IHasCoordinate
-{
-    public static Stack<KDNode<T>> nodeCache = new Stack<KDNode<T>>();
-    private KDNode<T> rootNode;
+    public static Stack<KDNode> nodeCache = new Stack<KDNode>();
+    private KDNode rootNode;
     private int dimensions;
-    public KDTree(int dimensions)
+    public KDTree(int dimensions, int[][] items)
     {
         this.dimensions = dimensions;
-    }
-
-    public void Buildtree(List<T> items)
-    {
-        items.OrderBy(T => T.GetCoordinate(0)).ThenBy(T => T.GetCoordinate(1));
-        rootNode = this.BuildSubTree(items, 0, items.Count - 1, 0);
-    }
-
-    public void ClearTree()
-    {
-        ReleaseNode(rootNode);
-    }
-
-    public KDNode<T> BuildSubTree(List<T> items, int left, int right, int depth)
-    {
-        if (left > right)
+        if (items.Length > 0)
         {
-            return null;
+            this.rootNode = this.BuildSubTree(items, 0, 0, items.Length - 1);
+        }
+    }
+
+    public void ReleaseTree()
+    {
+        this.ReleaseNode(rootNode);
+    }
+
+    public void BuildTree(int[][] items)
+    {
+        this.rootNode = this.BuildSubTree(items, 0, 0, items.Length - 1);
+    }
+
+    private void SortItems(int[][] items, int low, int high, int depth)
+    {
+        if (low >= high || low < 0)
+        {
+            return;
         }
 
-        int mid = (left + right) / 2;
-        KDNode<T> node = AllocateNode(items[mid], depth);
-        node.LeftChild = BuildSubTree(items, left, mid - 1, depth + 1);
-        node.RightChild = BuildSubTree(items, mid + 1, right, depth + 1);
+        int pivot = this.Partition(items, low, high, depth);
 
+        SortItems(items, low, pivot - 1, depth);
+        SortItems(items, pivot + 1, high, depth);
+    }
+
+    private int Partition(int[][] items, int low, int high, int depth)
+    {
+        int pivot = items[high][depth % this.dimensions];
+
+        int i = low - 1;
+        for (int j = low; j <= high - 1; j++)
+        {
+            if (items[j][depth % this.dimensions] <= pivot)
+            {
+                i += 1;
+                var temp = items[i];
+                items[i] = items[j];
+                items[j] = temp;
+            }
+        }
+
+        i += 1;
+        var temp2 = items[i];
+        items[i] = items[high];
+        items[high] = temp2;
+
+        return i;
+    }
+
+    private KDNode BuildSubTree(int[][] items, int depth, int low, int high)
+    {
+        this.SortItems(items, low, high, depth);
+
+        int mid = (low + high) / 2;
+        KDNode node = this.AllocateNode(items[mid], depth);
+        if (low <= mid - 1)
+        {
+            node.Children[0] = BuildSubTree(items, depth + 1, low, mid - 1);
+        }
+
+        if (mid + 1 <= high)
+        {
+            node.Children[1] = BuildSubTree(items, depth + 1, mid + 1, high);
+        }
         return node;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void SearchRange(int[] min, int[] max, List<T> results)
-    {
-        this.SearchSubTree(rootNode, min, max, 0, results);
-    }
-
-    private KDNode<T> AllocateNode(T item, int depth)
+    private KDNode AllocateNode(int[] item, int depth)
     {
         if (nodeCache.Count == 0)
         {
-            return new KDNode<T>(item, depth);
+            return new KDNode(item, depth);
         }
 
         var node = nodeCache.Pop();
@@ -90,64 +97,69 @@ public class KDTree<T> where T : IHasCoordinate
         return node;
     }
 
-    private void ReleaseNode(KDNode<T> node)
+    private void ReleaseNode(KDNode node)
     {
         if (node != null)
         {
-            node.Item = default(T);
-            node.Depth = 0;
-            ReleaseNode(node.LeftChild);
-            ReleaseNode(node.RightChild);
-            node.LeftChild = null;
-            node.RightChild = null;
-            nodeCache.Push(node);
+            ReleaseNode(node.Children[0]);
+            ReleaseNode(node.Children[1]);
+            node.Children[0] = null;
+            node.Children[1] = null;
         }
     }
 
-    private void SearchSubTree(KDNode<T> node, int[] min, int[] max, int depth, List<T> results)
+    public KDNode Nearest(int[] point)
     {
-        if (node == null)
+        return FindNearestNeighbor(rootNode, rootNode, point);
+    }
+
+    private KDNode FindNearestNeighbor(KDNode currentNode, KDNode closestNode, int[] point)
+    {
+        if (currentNode == null)
         {
-            return;
+            return closestNode;
         }
 
-        if (node.Item.GetInBounds(min, max))
+        var currentNodeDistance = Math.Pow(currentNode.Item[0] - point[0], 2) + Math.Pow(currentNode.Item[1] - point[1], 2);
+        var closestDistance = Math.Pow(closestNode.Item[0] - point[0], 2) + Math.Pow(closestNode.Item[1] - point[1], 2);
+
+        if (currentNodeDistance <= closestDistance)
         {
-            results.Add(node.Item);
+            closestNode = currentNode;
+            closestDistance = currentNodeDistance;
         }
 
-        int dimension = depth % this.dimensions;
-        int split = node.Item.GetCoordinate(dimension);
-        int minDist = min[dimension];
-        int maxDistance = max[dimension];
+        int dimension = currentNode.Depth % this.dimensions;
 
-        if (minDist <= split)
+        int splitDistance = point[dimension] - currentNode.Item[dimension];
+
+        KDNode first = splitDistance <= 0 ? currentNode.Children[0] : currentNode.Children[1];
+        KDNode second = splitDistance <= 0 ? currentNode.Children[1] : currentNode.Children[0];
+
+
+        closestNode = FindNearestNeighbor(first, closestNode, point);
+        closestDistance = Math.Pow(closestNode.Item[0] - point[0], 2) + Math.Pow(closestNode.Item[1] - point[1], 2);
+        if (splitDistance * splitDistance < closestDistance)
         {
-            SearchSubTree(node.LeftChild, min, max, depth + 1, results);
+            closestNode = FindNearestNeighbor(second, closestNode, point);
         }
 
-        if (maxDistance >= split)
-        {
-            SearchSubTree(node.RightChild, min, max, depth + 1, results);
-        }
+        return closestNode;
     }
 }
 
-public class KDNode<T> where T : IHasCoordinate
+public class KDNode
 {
-    public T Item { get; set; }
-    public int Depth { get; set; }
-    public KDNode<T> LeftChild { get; set; }
-    public KDNode<T> RightChild { get; set; }   
+    public int[] Item;
+    public int Depth;
 
-    public KDNode(T item, int depth) {
+    public KDNode[] Children;
+
+    public KDNode(int[] item, int depth)
+    {
         Item = item;
         Depth = depth;
+        Children = new KDNode[2];
     }
 }
 
-public interface IHasCoordinate
-{
-    public int GetCoordinate(int dimension);
-    public bool GetInBounds(int[] min, int[] max);
-}

@@ -379,13 +379,16 @@ MonoBehaviour:
   NumberOfZombies: 5
   NumberOfMoves: 45
   RowWidth: 25
-  Seed: 93457
+  Seed: 98347962
   NumberOfGenerationsToRun: 1000
   AngleVariation: 270
   MagintudeVariation: 500
   GeneMutateChance: 0.2
   ElitismCount: 4
   KillCount: 0
+  FontSize: 24
+  GUIWidth: 400
+  GUIHeight: 50
   RenderCount: 10
   SlowDownCount: 1
   gymContainers: []

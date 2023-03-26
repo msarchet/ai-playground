@@ -12,8 +12,6 @@ public class GameState
 
     public Dictionary<int, Vector2Int> ZombieNextMoves { get; set; } = new Dictionary<int, Vector2Int>();
 
-    public Dictionary<int, int> HumanClosestToZombie { get; set; } = new Dictionary<int, int>();
-
     public Vector2Int Ash { get; set; } = new Vector2Int(0, 0);
 
     public HashSet<int> KilledHumans { get; set;  } = new HashSet<int>();
@@ -53,12 +51,6 @@ public class GameState
         foreach (var pair in gameState.ZombieNextMoves)
         {
             this.ZombieNextMoves[pair.Key] =  pair.Value;
-        }
-
-        this.HumanClosestToZombie.Clear();
-        foreach (var pair in gameState.HumanClosestToZombie)
-        {
-            this.HumanClosestToZombie[pair.Key] = pair.Value;
         }
 
         this.Ash = gameState.Ash;
