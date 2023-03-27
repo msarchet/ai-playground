@@ -21,7 +21,7 @@ public class GameState
     public double DistanceToLastHuman { get; set; }
 
     public int NumberOfUsedMoves { get; set; }
-
+    public int NumberOfUsefulMoves { get; set; }
     public double Score { get; set; }
 
     public GamePhase Phase { get; set; } = GamePhase.Playing;
@@ -73,6 +73,7 @@ public class GameState
         this.Phase = gameState.Phase;
         this.DistanceToLastHuman = gameState.DistanceToLastHuman;
         this.NumberOfUsedMoves = gameState.NumberOfUsedMoves;
+        this.NumberOfUsefulMoves = gameState.NumberOfUsefulMoves;
         this.NumberOfKilledZombies = gameState.NumberOfKilledZombies;
     }
 }

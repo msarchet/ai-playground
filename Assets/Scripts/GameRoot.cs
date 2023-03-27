@@ -193,7 +193,7 @@ public class GameRoot : MonoBehaviour
                     stringBuilder.Append(System.Environment.NewLine);
                 }
 
-                System.IO.File.WriteAllText($"{this.Generation}-{this.NumberOfGenerationsToRun}-{System.DateTime.Now.ToFileTime()}.log", stringBuilder.ToString());
+                System.IO.File.WriteAllText($"{this.genetics.Generation}-{this.NumberOfGenerationsToRun}-{System.DateTime.Now.ToFileTime()}.log", stringBuilder.ToString());
 
                 this.cumaltiveResults.Clear();
                 this.scored = false;
@@ -251,19 +251,24 @@ public class GameRoot : MonoBehaviour
             }
 
             this.LastResults[i] = gym.Game.Fitness;
-            fitnesses[i] = new double[2] { gym.Game.Fitness.Score, gym.Game.id };
+            fitnesses[i] = new double[2] { gym.Game.Fitness.Fitness, gym.Game.id };
             i++;
         }
 
         System.Array.Sort(fitnesses, (left, right) => right[0].CompareTo(left[0]));
 
+        //Debug.Log(maxScore);
         this.genetics.Fitness = fitnesses;
         this.cumaltiveResults.Add(new GameFitness(this.LastResults[(int)fitnesses[0][1]]));
          
         scored = true;
 
-        if (genetics.Generation % NumberOfGenerationsToRun < NumberOfGenerationsToRun)
+        if (genetics.Generation % NumberOfGenerationsToRun == 0)
         {
+            if (minFitness <= 0)
+            {
+                minFitness = 0.1;
+            }
             for (i = 0; i < this.LastResults.Length; i++)
             {
                 var result = this.LastResults[i];
@@ -296,8 +301,9 @@ public class GameRoot : MonoBehaviour
 
                 //Debug.Log($"Gym {result.Gym} fitness : {result.Fitness} score: {result.Score} won : {result.Won} lost: {result.Lost}");
             }
+        } else
+        {
             this.scored = false;
-            this.IterationGenerations++;
             this.EvolveGyms();
         }
     }

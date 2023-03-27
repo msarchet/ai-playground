@@ -38,16 +38,24 @@ namespace zombiegame
 
         public void SeedGeneration()
         {
+            this.Generation = 1;
             this.Genomes = new T[population][];
             for (int i = 0; i < population; i++)
             {
-                this.Genomes[i] = new T[numberOfChromosomes];
-                for (int j = 0; j < this.numberOfChromosomes; j++)
-                {
-                    this.Genomes[i][j] = GenerateChromosome();
-                }
-
+                this.Genomes[i] = MakeGenome();  
             }
+        }
+
+        public T[] MakeGenome()
+        {
+            var newGenome = new T[this.numberOfChromosomes];
+
+            for (int i = 0; i < this.numberOfChromosomes; i++)
+            {
+                newGenome[i] = GenerateChromosome(); 
+            }
+            return newGenome;
+
         }
 
         public abstract T GenerateChromosome();
@@ -60,18 +68,33 @@ namespace zombiegame
 
             var newGeneration = new T[population][];
             var fitnesses = GetFitness();
+
+            for (int i = 0; i < fitnesses.Length; i++)
+            {
+                if (fitnesses[i][0] <= 0)
+                {
+                    this.Genomes[(int)fitnesses[i][1]] = MakeGenome();
+                }
+            }
+
             Array.Sort(fitnesses, (left, right) => right[0].CompareTo(left[0]));
+
             var wheel = MakeWheel(fitnesses);
             int currentGenome = 0;
             if (this.Elitism)
             {
-                for (; currentGenome < this.ElitismCount; currentGenome++)
+                int elites = 0;
+                for (; elites < this.ElitismCount; elites++)
                 {
-                    newGeneration[currentGenome] = this.Genomes[(int)fitnesses[currentGenome][1]];
+                    if (fitnesses[elites][1] > 0)
+                    {
+                        newGeneration[currentGenome] = this.Genomes[(int)fitnesses[currentGenome][1]];
+                        currentGenome++;
+                    }
                 }
             }
 
-            for (; currentGenome < this.population - this.KillOffCount; currentGenome += 2)
+            for (; (currentGenome + 1) < this.population - this.KillOffCount; currentGenome += 2)
             {
                 var parent1 = this.Genomes[GetParentRoullette(wheel)];
                 var parent2 = this.Genomes[GetParentRoullette(wheel)];
@@ -94,26 +117,23 @@ namespace zombiegame
                         child2[j] = parent1[j];
                     }
 
-                    if (this.random.NextDouble() < this.MutateChance)
-                    {
-                        child1[j] = this.GenerateChromosome();
-                    }
-
-                    if (this.random.NextDouble() < this.MutateChance)
-                    {
-                        child2[j] = this.GenerateChromosome();
-                    }
                 }
+
+                if (this.random.NextDouble() < this.MutateChance)
+                {
+                    child1[this.random.Next(this.numberOfChromosomes - 1)] = this.GenerateChromosome();
+                }
+
+                if (this.random.NextDouble() < this.MutateChance)
+                {
+                    child2[this.random.Next(this.numberOfChromosomes - 1)] = this.GenerateChromosome();
+                }
+
             }
 
             for (; currentGenome < this.population; currentGenome++)
             {
-                newGeneration[currentGenome] = new T[this.numberOfChromosomes];
-
-                for (int i = 0; i < this.numberOfChromosomes; i++)
-                {
-                    newGeneration[currentGenome][i] = GenerateChromosome(); 
-                }
+                newGeneration[currentGenome] = MakeGenome();
             }
 
             this.Genomes = newGeneration;
